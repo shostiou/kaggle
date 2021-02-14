@@ -53,17 +53,215 @@ Some variables need to be transformed as factors.
 ```{r}
 # Passenger has survided (Y/N) response variable
 training$Survived <- as.factor(training$Survived)
+testing$Survived <- as.factor(testing$Survived)
 # Passenger class (1st to 3rd)
 training$Pclass <- as.factor(training$Pclass)  
+testing$Pclass <- as.factor(testing$Pclass)  
+titanic_test_init$Pclass <- as.factor(titanic_test_init$Pclass)
 # Sex
 training$Sex <- as.factor(training$Sex)  
+testing$Sex <- as.factor(testing$Sex)  
+titanic_test_init$Sex <- as.factor(titanic_test_init$Sex)
 # Port of embarcation  
 training$Embarked <- as.factor(training$Embarked)  
+testing$Embarked <- as.factor(testing$Embarked)  
+titanic_test_init$Embarked <- as.factor(titanic_test_init$Embarked)
+```
+
+
+```{r}
+str(training)
+```
+
+Let's build some plots showing relationships between predictors and response variable.  
+
+Survived & Pclass
+
+```{r}
+ggplot(training)+
+  geom_bar(mapping=aes(x=Survived,fill=Pclass))+
+  facet_wrap(~Pclass)
+```
+
+It appears that passengers of 1st class had higher chances to survive whil 3rd class passengers had 1/3 chances of surviving & 2/3 of not surviving.  
+The Pclass variable will be an important predictor.
+
+Let's try to see a relationship between Sex and Surviving
+
+```{r}
+ggplot(training)+
+  geom_bar(mapping=(aes(x=Survived,fill=Sex)))+
+  facet_wrap(~Sex)
+```
+
+Females had much more higher chances to survive than males.  
+
+Let see the influence of age  
+
+```{r}
+ggplot(training)+
+  geom_density(mapping = aes(Age,fill=Survived,col=Survived),bins=30, alpha=0.5)
+```
+
+Being a kid (under 10yo) increases chances to survive.  
+While older people (over 70) has few chances to survive.  
+
+Let see the influence of Fare 
+
+```{r}
+training %>% filter (Fare<200) %>% ggplot()+
+  geom_density(mapping = aes(Fare,fill=Survived,col=Survived),bins=30, alpha=0.5)
+```
+
+Having purchased cheap tickets incresed the chances of not surviving.  
+
+Let see the influence of the boarding port.  
+
+```{r}
+training %>% ggplot()+
+  geom_bar(mapping=aes(x=Survived,fill=Embarked))+
+    facet_wrap(~Embarked)
+```
+
+Embarkment port had a correlation with chances to survive.  
+
+
+```{r}
+training %>% ggplot()+
+  geom_bar(mapping=aes(x=Survived,fill=Parch))+
+    facet_wrap(~Parch)
+```
+
+```{r}
+training %>% ggplot()+
+  geom_bar(mapping=aes(x=Survived,fill=SibSp))+
+    facet_wrap(~SibSp)
+```
+
+```{r}
+training %>% ggplot()+
+  geom_jitter(mapping=aes(y=Survived,x=Parch))
+```
+
+
+Checking the number of NAs
+
+
+```{r}
+training %>%
+  summarise_all(funs(sum(is.na(.)))) %>% t() / nrow(training)
+```
+
+There are too many data missing with the Cabin variable.  
+This predictor will be ignored.  
+19% of the age information is missing. A strategy has to be defined to fill the missing values. Using mean ? median ?
+
+Ticket nb doesn't appear to have any interest for prediction.  
+So is name
+
+```{r}
+median_age <- median(na.omit(training$Age))
+```
+
+Replacing NA age with median_age
+
+```{r}
+training$Age[is.na(training$Age)] <- median_age
+testing$Age[is.na(testing$Age)] <- median_age
+titanic_test_init$Age[is.na(titanic_test_init$Age)] <- median_age
+```
+
+If Embarking location is not specified, it will be replaced by Southsampton which is the predominant category.  
+
+```{r}
+training$Embarked[is.na(training$Embarked)] <- 'S'
+testing$Embarked[is.na(testing$Embarked)] <- 'S'
+titanic_test_init$Embarked[is.na(titanic_test_init$Embarked)] <- 'S'
+```
+
+
+## Machine Learning model definition   
+
+### KNN  
+
+```{r}
+knn_train_x <- training %>% select(-Name,-Ticket,-Cabin,-PassengerId)
+knn_test_x <- testing %>% select(-Name,-Ticket,-Cabin,-PassengerId)
+knn_valid_x <- titanic_test_init %>% select(-Name,-Ticket,-Cabin,-PassengerId)
+```
+
+Model definition  
+
+```{r}
+ctrl <- trainControl(method="repeatedcv",repeats = 3) 
+knnFit <- train(Survived ~ ., data = knn_train_x, method = "knn", trControl = ctrl, preProcess = c("center","scale"), tuneLength = 20)
+```
+
+
+```{r}
+knnFit
+```
+
+Validation on the test set
+
+```{r}
+knnPredict <- predict(knnFit,newdata = knn_test_x )
+# Checking the confusion matrix
+confusionMatrix(knnPredict, testing$Survived )
+
 
 ```
 
 
+### Logistic Regression  
 
 
+Model definition  
+
+```{r}
+glm.fit <- glm(Survived ~ ., data = knn_train_x, family = binomial)
+glm.probs <- predict(glm.fit,type = "response",newdata = knn_test_x)
+glm.pred <- ifelse(glm.probs > 0.5, "1", "0")
+glm.pred <- as.factor(glm.pred)
+confusionMatrix(glm.pred, testing$Survived )
+```
 
 
+### Random Forest  
+
+```{r}
+rf_model<-train(Survived~.,data=knn_train_x,method="rf",
+                trControl=trainControl(method="cv",number=5),
+                prox=TRUE,allowParallel=TRUE)
+```
+
+```{r}
+rfPredict <- predict(rf_model,newdata = knn_test_x )
+# Checking the confusion matrix
+confusionMatrix(rfPredict, testing$Survived )
+```
+
+Good accuracy 0.8239 
+
+## SVM  
+
+```{r}
+svm_train_x<- knn_train_x
+levels(svm_train_x$Survived)=c("No","Yes")
+
+```
+
+
+```{r}
+ctrl <- trainControl(method = "cv", savePred=T, classProb=T)
+svm_model <- train(Survived~., data=svm_train_x, method = "svmLinear", trControl = ctrl)
+```
+
+```{r}
+svm_Predict <- predict(svm_model,newdata = knn_test_x )
+levels(svm_Predict)=c("0","1")
+# Checking the confusion matrix
+confusionMatrix(svm_Predict, testing$Survived )
+```
+
+KNN appears to be the best method.
