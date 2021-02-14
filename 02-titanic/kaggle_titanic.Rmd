@@ -1,0 +1,69 @@
+---
+title: "Kaggle_titanic"
+author: "shostiou"
+date: "14/02/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+First Kaggle competition : working with the titanic dataset (which is ome king of "sandbox")
+Let's start by loading the required libraries
+Another file, gender_submission shows the structure of the file to be submitted.
+
+```{r, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(caret)
+```
+
+## Loading the data
+
+There is one training set and one test set provided by Kaggle.
+
+```{r, message=FALSE,warning=FALSE}
+titanic_train_init <- read_csv('train.csv')
+titanic_test_init <- read_csv('test.csv')
+```
+
+In order to be able to perform cross validation, we will need to define our own test set out of the initial training set. The Caret package will be used to do the split.  
+
+```{r}
+set.seed(50977) 
+i <- createDataPartition(titanic_train_init$PassengerId, p = 0.8, list=FALSE)
+training <- titanic_train_init[i,]
+testing <- titanic_train_init[-i,]
+```
+
+Now we will keep our testing set preciously and proceed to EDA on our training set.  
+
+## Eploratory Data Analysis  
+
+Checking the basic structure of the data  
+
+```{r}
+str(training)
+```
+
+Some variables need to be transformed as factors.  
+
+```{r}
+# Passenger has survided (Y/N) response variable
+training$Survived <- as.factor(training$Survived)
+# Passenger class (1st to 3rd)
+training$Pclass <- as.factor(training$Pclass)  
+# Sex
+training$Sex <- as.factor(training$Sex)  
+# Port of embarcation  
+training$Embarked <- as.factor(training$Embarked)  
+
+```
+
+
+
+
+
+
