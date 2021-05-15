@@ -1,0 +1,39 @@
+---
+title: "SVM_OCR"
+author: "shostiou"
+date: "15/05/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+Performing OCR with SVM
+SVM are well suited to tackle the challenge of image data.
+With this projet we will perform Optical Character Recognition  
+
+## Collecting data  
+
+We will focus on A to Z recognition.  
+We will use a dataset containing 20k examples of 26 Engligh alphabet capital letters.
+
+```{r}
+url <- "https://raw.githubusercontent.com/stedy/Machine-Learning-with-R-datasets/master/letterdata.csv"
+download.file(url,"letterdata.csv")
+```
+
+The glyphs were converted to pixels + 16 statistical attributes.  
+Horizontal/ vertical dimensions  
+Average horizontal / vertical positions of pixels.  
+Diff of B&W concentration  accross various areas.  
+
+```{r}
+letters <- read.csv("letterdata.csv")
+str(letters)
+```
+
+
+
