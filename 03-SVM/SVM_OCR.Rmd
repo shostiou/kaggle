@@ -35,5 +35,109 @@ letters <- read.csv("letterdata.csv")
 str(letters)
 ```
 
+## Training and testing sets  
+
+The data has already been divided into random samples of training / testing sets.  
+The first 80% of the records will be assigned to a training set while the remaining 20% will be assigned to the test set.  
+
+```{r}
+letters_train <- letters[1:16000,]
+letters_test <- letters[16001:20000,]
+
+```
+
+
+## Training  
+
+There are different packages which can be used to train SVM classifier.  
+The book suggests to use the kernlab package.
+By default, it used the Gaussian RBF Kernel
+
+Let's start by calling the package
+
+```{r}
+library(kernlab)
+```
+
+Linear classifier  
+The linear classifier is called "vanilla" in this package.  
+
+```{r}
+letter_classifier <- ksvm(letter ~ ., data = letters_train, kernel="vanilladot")
+```
+
+
+```{r, message=FALSE, warning=FALSE}
+library(caret)
+```
+
+
+```{r}
+
+# This parameter controls the cross validation 10 folds / repeated 3 times.
+trctrl <- trainControl(method = "repeatedcv", number = 10, repeats = 3)
+set.seed(3233)
+ 
+svm_Linear <- train(letter ~., data = letters_train , method = "svmLinear",
+                 trControl=trctrl,
+                 preProcess = c("center", "scale"),
+                 tuneLength = 10)
+```
+
+
+```{r}
+svm_Linear
+```
+
+We can now evaluate the model performance by making predictions with the test set.  
+
+```{r}
+letter_predictions <- predict(svm_Linear, newdata = letters_test)
+```
+
+Checking the response
+
+```{r}
+head(letter_predictions)
+```
+
+To examine how well our model performed, we need to compare predictions vs "real values"
+
+```{r}
+table(letter_predictions,letters_test$letter)
+```
+
+Values which are appearing on the diagonal where correctly predicted.  
+
+We can now compute the prediction accuracy  
+
+
+```{r}
+agreement <- letter_predictions == letters_test$letter
+table(agreement)
+```
+
+Same result given in percentages  
+
+```{r}
+prop.table(table(agreement))
+```
+
+## Improving the performance of the model
+
+By using a higher dimension model, we can map the data to a higher dimensional space and obtain better model fit.  
+A popular convention is to start with the RBF Kernel  
+
+
+```{r}
+svm_rbf <- train(letter ~., data = letters_train , method = "svmRadial",
+                 trControl=trctrl,
+                 preProcess = c("center", "scale"),
+                 tuneLength = 10)
+```
+
+
+
+
 
 
