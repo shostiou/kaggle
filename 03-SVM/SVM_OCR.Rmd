@@ -60,39 +60,24 @@ library(kernlab)
 ```
 
 Linear classifier  
-The linear classifier is called "vanilla" in this package.  
+The linear classifier is called "vanilla" in this package. 
+Note that this package doesn't seem to work under Windows environment but it works
+pretty fine with Linux operating systems.
 
 ```{r}
 letter_classifier <- ksvm(letter ~ ., data = letters_train, kernel="vanilladot")
 ```
 
-
-```{r, message=FALSE, warning=FALSE}
-library(caret)
-```
-
-
 ```{r}
-
-# This parameter controls the cross validation 10 folds / repeated 3 times.
-trctrl <- trainControl(method = "repeatedcv", number = 10, repeats = 3)
-set.seed(3233)
- 
-svm_Linear <- train(letter ~., data = letters_train , method = "svmLinear",
-                 trControl=trctrl,
-                 preProcess = c("center", "scale"),
-                 tuneLength = 10)
+letter_classifier
 ```
 
 
-```{r}
-svm_Linear
-```
 
 We can now evaluate the model performance by making predictions with the test set.  
 
 ```{r}
-letter_predictions <- predict(svm_Linear, newdata = letters_test)
+letter_predictions <- predict(letter_classifier, newdata = letters_test)
 ```
 
 Checking the response
@@ -130,12 +115,213 @@ A popular convention is to start with the RBF Kernel
 
 
 ```{r}
-svm_rbf <- train(letter ~., data = letters_train , method = "svmRadial",
-                 trControl=trctrl,
-                 preProcess = c("center", "scale"),
-                 tuneLength = 10)
+letter_classifier_rbf <- ksvm(letter ~ ., data = letters_train,
+                              kernel = "rbfdot")
 ```
 
+Let's go through the same steps as before : predictions + accuracy
+
+```{r}
+letter_predictions_rbf <- predict(letter_classifier_rbf, newdata = letters_test)
+agreement_rbf <- letter_predictions_rbf == letters_test$letter
+table(agreement_rbf)
+```
+
+Seeing the results as proportions  
+
+```{r}
+prop.table(table(agreement_rbf))
+```
+
+Simply by changing our Kernel function we improved the accuracy from 84% to 93%  
+
+## Identify the best SVM Cost parameter  
+
+We will see how the width of the decision boundary can influence the result  
+C large => overfitting
+We will examine how the model performs for various values of C
+
+```{r}
+cost_values <- c(1,seq(from = 5, to = 40, by = 5))
+
+accuracy_values <- sapply(cost_values, function(x){
+  set.seed(12345)
+  m <- ksvm(letter ~ ., data=letters_train, kernel="rbfdot", C=x)
+  pred <- predict(m, letters_test)
+  agree <- ifelse(pred==letters_test$letter,1,0)
+  accuracy <- sum(agree) / nrow(letters_test)
+  return(accuracy)
+}  )
+
+
+
+```
+
+```{r}
+plot(cost_values,accuracy_values,type="b")
+```
+
+
+
+## SVM Practice
+
+Let's generate some random points.  
+
+```{r}
+library(MASS)
+```
+
+
+```{r}
+mu1 <-c(2,2)
+mu2 <-c(1,1)
+Sigma <- matrix(c(1, 0.5,
+              0.5, 1), 
+            nrow = 2, ncol = 2)
+
+```
+
+```{r}
+dataset1 <- mvrnorm(n = 10, mu1, Sigma, tol = 1e-6, empirical = FALSE, EISPACK = FALSE)
+dataset2 <- mvrnorm(n = 10, mu2, Sigma, tol = 1e-6, empirical = FALSE, EISPACK = FALSE)
+
+```
+
+```{r}
+plot(dataset1)
+par(new=TRUE)
+plot(dataset2)
+```
+
+
+
+
+```{r}
+mvrnorm(n = 10, mu, Sigma, tol = 1e-6, empirical = FALSE, EISPACK = FALSE)
+```
+
+
+
+# Neural Networks  
+
+We will utilize data on the compressive strength of concrete.  
+
+```{r}
+url <- "https://raw.githubusercontent.com/PacktPublishing/Machine-Learning-with-R-Second-Edition/master/Chapter%2007/concrete.csv"
+download.file(url,"concrete.csv")
+```
+
+## Exploring and preparing the data  
+
+```{r}
+concrete <- read.csv("concrete.csv")
+str(concrete)
+```
+
+There are 8 features and one outcome (stregth)  
+
+As a first step we need to normalize the data. For this purpose we will build our own function.  
+
+
+```{r}
+normalize <- function(x){
+  return((x-min(x))/(max(x)-min(x)))
+} 
+```
+
+The normalization will be applied to every clomun of our data set  
+
+```{r}
+concrete_norm <- as.data.frame(lapply(concrete,normalize))
+```
+
+We can control the normalized variables  
+
+```{r}
+summary(concrete$strength)
+summary(concrete_norm$strength)
+```
+
+As the data is already randomly sampled, we can build our training / test sets.  
+
+```{r}
+concrete_train <- concrete_norm[1:773,]
+concrete_test <- concrete_norm[774:1030,] 
+```
+
+## NN 1 layer
+
+The neuralnet package will be used  
+
+```{r}
+library(neuralnet)
+```
+
+Let's start by training a simple model with only one hidden node  
+
+```{r}
+concrete_model <- neuralnet(strength ~ .,data = concrete_train )
+```
+
+And let's visualize the model  
+
+```{r}
+plot(concrete_model)
+```
+
+We can evaluate the performance of the model  
+
+```{r}
+model_results <- compute(concrete_model, concrete_test[1:8])
+```
+
+Lecture des resultats du reseau
+
+```{r}
+predicted.strength <- model_results$net.result
+```
+
+Because it is a numeric prediction pb but not a classification pb, we cannot use a confusion Matrix to examine model accuracy. We will measure the correlations between predicted / true value.  
+
+```{r}
+cor(predicted.strength, concrete_test$strength)
+```
+
+
+## Improving Model performance  
+
+```{r}
+concrete_model2 <- neuralnet(strength ~ .,data = concrete_train, hidden=5 )
+```
+
+
+```{r}
+plot(concrete_model2)
+```
+
+```{r}
+model_results2 <- compute(concrete_model2, concrete_test[1:8])
+predicted.strength2 <- model_results2$net.result
+cor(predicted.strength2, concrete_test$strength)
+```
+
+
+## Improving Model performance 2
+
+```{r}
+concrete_model3 <- neuralnet(strength ~ .,data = concrete_train, hidden=c(10,5,3) )
+```
+
+
+```{r}
+plot(concrete_model3)
+```
+
+```{r}
+model_results3 <- compute(concrete_model3, concrete_test[1:8])
+predicted.strength3 <- model_results3$net.result
+cor(predicted.strength3, concrete_test$strength)
+```
 
 
 
