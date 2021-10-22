@@ -1,0 +1,123 @@
+---
+title: "Houses"
+author: "shostiou"
+date: "20/10/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Import des fichiers csv
+
+Import des bibliotheques
+
+```{r}
+library(tidyverse)
+library(caret)
+```
+
+```{r, message=FALSE,warning=FALSE}
+train <- read_csv('data/train.csv')
+test <- read_csv('data/test.csv')
+```
+
+Creation d'un ensmble de training et de validation
+
+```{r}
+set.seed(50977) 
+i <- createDataPartition(train$Id, p = 0.8, list=FALSE)
+training <- train[i,]
+validation <- train[-i,]
+```
+
+## Exploration des donnees
+
+
+```{r}
+str(training)
+```
+
+En analysant le champ des donnees, on peut deja identifier un certain nombre de fuites (data leakage) dont l'elimination sera necessaire :  
+- SaleType : Type of sale  
+- SaleCondition: Condition of sale  
+- YrSold: Year Sold (YYYY)  
+- MoSold: Month Sold (MM)  
+
+```{r}
+# Suppression des champs lies au data leakage  
+training <- training %>% select (-SaleType,-SaleCondition, -YrSold, -MoSold)
+validation <- validation %>% select (-SaleType,-SaleCondition, -YrSold, -MoSold)
+test <- test %>% select (-SaleType,-SaleCondition, -YrSold, -MoSold)
+```
+
+Toutes les variables encodees sous forme de caractere sont en fait de variables categorielles. Il donc necessaire de les convertir en factors.  
+
+```{r}
+# Conversion sous forme de factor
+training[sapply(training, is.character)] <- lapply(training[sapply(training, is.character)], as.factor)
+
+validation[sapply(validation, is.character)] <- lapply(validation[sapply(validation, is.character)], as.factor)
+
+test[sapply(test, is.character)] <- lapply(test[sapply(test, is.character)], as.factor)
+
+```
+
+
+Certaines valeurs numeriques sont en definitive, des donnees categorielles.   
+Elles doivent donc être traitees en tant que Factor.  
+
+MSSubClass: Identifies the type of dwelling involved in the sale.  
+OverallQual: Rates the overall material and finish of the house
+OverallCond: Rates the overall condition of the house
+
+```{r}
+training$MSSubClass <- as.factor(training$MSSubClass)
+validation$MSSubClass <- as.factor(validation$MSSubClass)
+test$MSSubClass <- as.factor(test$MSSubClass)
+
+training$OverallQual <- as.factor(training$OverallQual)
+validation$OverallQual <- as.factor(validation$OverallQual)
+test$OverallQual <- as.factor(test$OverallQual)
+
+
+training$OverallCond <- as.factor(training$OverallCond)
+validation$OverallCond <- as.factor(validation$OverallCond)
+test$OverallCond <- as.factor(test$OverallCond)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

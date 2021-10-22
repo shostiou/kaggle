@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Introduction
 
-First Kaggle competition : working with the titanic dataset (which is ome king of "sandbox")
+First Kaggle competition : working with the titanic dataset (which is ome kind of "sandbox")
 Let's start by loading the required libraries
 Another file, gender_submission shows the structure of the file to be submitted.
 
@@ -26,7 +26,7 @@ There is one training set and one test set provided by Kaggle.
 
 ```{r, message=FALSE,warning=FALSE}
 titanic_train_init <- read_csv('train.csv')
-titanic_test_init <- read_csv('test.csv')
+titanic_valid_init <- read_csv('test.csv')
 ```
 
 In order to be able to perform cross validation, we will need to define our own test set out of the initial training set. The Caret package will be used to do the split.  
@@ -57,15 +57,15 @@ testing$Survived <- as.factor(testing$Survived)
 # Passenger class (1st to 3rd)
 training$Pclass <- as.factor(training$Pclass)  
 testing$Pclass <- as.factor(testing$Pclass)  
-titanic_test_init$Pclass <- as.factor(titanic_test_init$Pclass)
+titanic_valid_init$Pclass <- as.factor(titanic_valid_init$Pclass)
 # Sex
 training$Sex <- as.factor(training$Sex)  
 testing$Sex <- as.factor(testing$Sex)  
-titanic_test_init$Sex <- as.factor(titanic_test_init$Sex)
+titanic_valid_init$Sex <- as.factor(titanic_valid_init$Sex)
 # Port of embarcation  
 training$Embarked <- as.factor(training$Embarked)  
 testing$Embarked <- as.factor(testing$Embarked)  
-titanic_test_init$Embarked <- as.factor(titanic_test_init$Embarked)
+titanic_valid_init$Embarked <- as.factor(titanic_valid_init$Embarked)
 ```
 
 Checking the modified dataset with those factors
@@ -181,7 +181,7 @@ Replacing NA age with median_age in the training & testing sets
 ```{r}
 training$Age[is.na(training$Age)] <- median_age
 testing$Age[is.na(testing$Age)] <- median_age
-titanic_test_init$Age[is.na(titanic_test_init$Age)] <- median_age
+titanic_valid_init$Age[is.na(titanic_valid_init$Age)] <- median_age
 ```
 
 If Embarking location is not specified, it will be replaced by Southsampton which is the predominant category.  
@@ -189,8 +189,52 @@ If Embarking location is not specified, it will be replaced by Southsampton whic
 ```{r}
 training$Embarked[is.na(training$Embarked)] <- 'S'
 testing$Embarked[is.na(testing$Embarked)] <- 'S'
-titanic_test_init$Embarked[is.na(titanic_test_init$Embarked)] <- 'S'
+titanic_valid_init$Embarked[is.na(titanic_valid_init$Embarked)] <- 'S'
 ```
+
+
+## Dimensionality reduction
+
+
+Classical MDS N rows (objects) x p columns (variables) each row identified by a unique row name
+
+```{r}
+
+
+d <- dist((training)) # euclidean distances between the rows
+fit <- cmdscale(d,eig=TRUE, k=2) # k is the number of dim
+# plot solution
+x <- fit$points[,1]
+y <- fit$points[,2]
+
+ggplot()+
+  geom_jitter(mapping=aes(x,y),fill=as.factor(training$Survived))
+
+#plot(x, y, xlab="Coordinate 1", ylab="Coordinate 2",main="Metric MDS", type="n")
+# text(x, y, labels = row.names(training), cex=.7)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 ## Machine Learning model definition   
