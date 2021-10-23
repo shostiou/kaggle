@@ -13,7 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 Import des bibliotheques
 
-```{r}
+```{r, warning=FALSE, message=FALSE}
 library(tidyverse)
 library(caret)
 ```
@@ -23,7 +23,7 @@ train <- read_csv('data/train.csv')
 test <- read_csv('data/test.csv')
 ```
 
-Creation d'un ensmble de training et de validation
+Creation d'un ensemble de training et de validation
 
 ```{r}
 set.seed(50977) 
@@ -88,7 +88,18 @@ test$OverallCond <- as.factor(test$OverallCond)
 
 ```
 
+## Recherche des elements manquants
 
+- Compte tenu de la part important de NAs sur les champs PoolQC, MiscFeature, Alley on peut considérer ces grandeurs comme non pertinentes.  
+- Une stratégie de remplacement des grandeurs LotFrontage, Garagetype, GareaYrBlt, GarageFinis, GarageQaul, GaraCond, BsmtQual, BsmtCond, BsmtExposure, BsmtFinType1, BsmtFinType2, MasVnrType, MasVnrArea devra être mise en place.  
+- La question reste ouverte au sujet de : Fence, FireplaceQu, LotFrontage.  
+
+
+
+```{r}
+sort(round(sapply(training,function(x) sum(is.na (x)))/nrow(training)*100,0), decreasing = TRUE)
+
+```
 
 
 
