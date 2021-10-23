@@ -39,6 +39,28 @@ validation <- train[-i,]
 str(training)
 ```
 
+Les noms de colonnes integrant des num en en tete doivent etre modifies afin d'eviter des incoherences de traitement avec Tidyverse
+
+```{r}
+colnames(training)[colnames(training) == '1stFlrSF'] <- 'FstFlrSF'
+colnames(training)[colnames(training) == '2ndFlrSF'] <- 'SndFlrSF'
+colnames(training)[colnames(training) == '3SsnPorch'] <- 'TrdSsnPorch'
+
+colnames(validation)[colnames(validation) == '1stFlrSF'] <- 'FstFlrSF'
+colnames(validation)[colnames(validation) == '2ndFlrSF'] <- 'SndFlrSF'
+colnames(validation)[colnames(validation) == '3SsnPorch'] <- 'TrdSsnPorch'
+
+colnames(test)[colnames(test) == '1stFlrSF'] <- 'FstFlrSF'
+colnames(test)[colnames(test) == '2ndFlrSF'] <- 'SndFlrSF'
+colnames(test)[colnames(test) == '3SsnPorch'] <- 'TrdSsnPorch'
+
+
+
+```
+
+
+
+
 En analysant le champ des donnees, on peut deja identifier un certain nombre de fuites (data leakage) dont l'elimination sera necessaire :  
 - SaleType : Type of sale  
 - SaleCondition: Condition of sale  
@@ -88,6 +110,18 @@ test$OverallCond <- as.factor(test$OverallCond)
 
 ```
 
+## On supprime les variables factor a deux niveau
+
+```{r}
+# Recherche des variables de type factor
+df_factor <- training[,sapply(training, is.factor)]
+col_2factor <- colnames(df_factor[,sapply(df_factor, nlevels)<2])
+
+```
+
+
+
+
 ## Recherche des elements manquants
 
 - Compte tenu de la part important de NAs sur les champs PoolQC, MiscFeature, Alley on peut considérer ces grandeurs comme non pertinentes.  
@@ -98,7 +132,152 @@ test$OverallCond <- as.factor(test$OverallCond)
 
 ```{r}
 sort(round(sapply(training,function(x) sum(is.na (x)))/nrow(training)*100,0), decreasing = TRUE)
+```
 
+Suppression des champs inutiles
+
+Vérification de l'incidence des champs sur le prix de vente
+
+Le graphe comfirme l'absence de necessite de conserver le champ.
+
+```{r}
+# PoolQC
+training %>% select(PoolQC,SalePrice) %>% ggplot() +
+  geom_jitter(mapping = aes(x=PoolQC,y=SalePrice))
+```
+
+Idem pour MiscFeature
+
+```{r}
+# MiscFeature
+training %>% select(MiscFeature,SalePrice) %>% ggplot() +
+  geom_jitter(mapping = aes(x=MiscFeature,y=SalePrice))
+```
+
+Même constat pour Alley
+
+```{r}
+# Alley
+training %>% select(Alley,SalePrice) %>% ggplot() +
+  geom_jitter(mapping = aes(x=Alley,y=SalePrice))
+```
+
+
+```{r}
+training <- training %>% select (-PoolQC,-MiscFeature, -Alley)
+validation <- validation %>% select (-PoolQC,-MiscFeature, -Alley)
+test <- test %>% select (-PoolQC,-MiscFeature, -Alley)
+```
+
+
+
+Focalisation sur les donnees Fence, FireplaceQu
+
+```{r}
+# Fence
+training %>% select(Fence,SalePrice) %>% ggplot() +
+  geom_boxplot(mapping = aes(x=Fence,y=SalePrice))
+```
+
+```{r}
+# FireplaceQu
+training %>% select(FireplaceQu,SalePrice) %>% ggplot() +
+  geom_boxplot(mapping = aes(x=FireplaceQu,y=SalePrice))
+```
+
+Cette variable mérite d'être conservée.
+
+FireplaceQu est lie a Fireplaces. Pas de donnees manquantes si presence d'une cheminee.
+
+```{r}
+training %>% select(FireplaceQu,Fireplaces) %>% filter (Fireplaces > 0) %>% filter(is.na(FireplaceQu))
+```
+
+```{r}
+# Recherche des variables numériques uniquement
+cor_df_training <-(training[,unlist(lapply(training, is.numeric))])
+```
+
+
+
+
+
+Prochaine étape : normaliser toutes les variables numeriques.
+La fonction preProcess de caret peut etre utilisee
+
+```{r}
+X_train <- training %>% select(-SalePrice)
+y_train <- training %>% select(SalePrice)
+X_valid <- validation %>% select(-SalePrice)
+y_valid <- validation %>% select(SalePrice)
+
+preProcValues <- preProcess(X_train, method = c("center", "scale"))
+X_train_tf <- predict(preProcValues, X_train)
+X_valid_tf <- predict(preProcValues, X_valid)
+X_test_tf <- predict(preProcValues, test)
+```
+
+Recherche des correlations
+
+```{r, message=TRUE}
+
+df <- data.frame()
+for (i in colnames(X_train[,unlist(lapply(X_train, is.numeric))]))
+  {
+  df <- rbind(df,cor(X_train[,i],y_train))
+}
+df <- df %>% arrange(desc(SalePrice))
+
+```
+
+Lets's focus on the most highly correlated features to the output variable
+
+```{r}
+df
+```
+
+```{r}
+training %>% ggplot() +
+  geom_jitter(mapping = aes(x=GrLivArea,y=log(SalePrice)))
+```
+
+```{r}
+training %>% ggplot() +
+  geom_jitter(mapping = aes(x=GarageCars,y=log(SalePrice)))
+```
+
+
+```{r}
+training %>% ggplot() +
+  geom_jitter(mapping = aes(x=GarageArea,y=log(SalePrice)))
+```
+
+```{r}
+
+training %>% ggplot() +
+  geom_jitter(mapping = aes(x=EnclosedPorch,y=log(SalePrice)))
+```
+
+## Recherche de Simplification 
+
+PCA valeur par defaut 95% de la variance
+
+```{r}
+preProcess(training, method = "pca")
+```
+## Creation d'un modele lineaire
+
+
+
+```{r}
+df <- X_train_tf
+df$SalePrice <- y_train
+colnames(df)[colnames(df) == 'SalePrice.SalePrice'] <- 'SalePrice'
+# Remove index
+df <- df %>% select(-Id)
+house_lm <- lm(training$SalePrice ~ MSSubClass + MSZoning + LotFrontage+ 
+                 LotArea+Street+LotShape, data = df)
+summary(house_lm)
 ```
 
 
@@ -106,29 +285,3 @@ sort(round(sapply(training,function(x) sum(is.na (x)))/nrow(training)*100,0), de
 
 
 
-
-
-
-
-
-
-
-
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
-```
-
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
